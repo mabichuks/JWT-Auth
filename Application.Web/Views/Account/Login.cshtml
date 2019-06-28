@@ -1,0 +1,13 @@
+﻿
+@{
+    ViewData["Title"] = "Index";
+    @model Application.Core.Models.LoginModel
+}
+
+<form asp-controller="Account" asp-action="Login" method="post">
+    Email:  <input asp-for="UserName" /> <br />
+    Password: <input asp-for="Password" type="password" /><br />
+    <button type="submit">Register</button>
+</form>
+
+
