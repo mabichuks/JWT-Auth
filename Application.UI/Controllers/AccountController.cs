@@ -42,16 +42,11 @@ namespace Application.UI.Controllers
 
 
             //Get Authentication Properties
-            var authProps = new AuthenticationProperties();
-            authProps.IsPersistent = true;
-            authProps.StoreTokens(new List<AuthenticationToken>
-                    {
-                        new AuthenticationToken
-                        {
-                            Name = "Bearer",
-                            Value = token
-                        }
-                    });
+            var authProps = new AuthenticationProperties
+            {
+                IsPersistent = true
+            };
+            authProps.StoreTokens(new AuthenticationToken []{new AuthenticationToken {Name = "Bearer",Value = token}});
 
             var claimsIdentity = new ClaimsIdentity("cookie");
             var principal = new ClaimsPrincipal(claimsIdentity);
@@ -61,6 +56,13 @@ namespace Application.UI.Controllers
             await HttpContext.SignInAsync("cookie", principal, authProps);
             return RedirectToAction("Index", "Home");
 
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> LogOut()
+        {
+            await HttpContext.SignOutAsync();
+            return RedirectToAction("Login");
         }
 
         private async Task<string> GetTokens(LoginModel model)

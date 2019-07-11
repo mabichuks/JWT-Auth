@@ -22,5 +22,8 @@ namespace Application.Core.Models
         public bool IsActive { get; set; }
 
         public RoleModel[] Roles { get; set; }
+
+        public List<SocialLoginModel> SocialLogins { get; set; } = new List<SocialLoginModel>();
+
     }
 }

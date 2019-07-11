@@ -3,14 +3,16 @@ using Application.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Application.Web.Migrations
 {
     [DbContext(typeof(DataEntities))]
-    partial class DataEntitiesModelSnapshot : ModelSnapshot
+    [Migration("20190711112946_Added_SocialLogin")]
+    partial class Added_SocialLogin
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

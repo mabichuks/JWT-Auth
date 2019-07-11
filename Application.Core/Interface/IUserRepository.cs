@@ -22,5 +22,12 @@ namespace Application.Core.Interface
         Task<string> GetPasswordHash(string userId);
         Task SetEmailConfirmed(string userId);
         Task SetPasswordHash(string userId, string passwordHash);
+
+        //Social Logins
+        Task AddSocialLogin(string userId, SocialLoginModel socialLogin);
+        Task<UserModel> FindUserBySocialLogin(string loginProvider, string providerKey);
+        Task<SocialLoginModel> GetSocialLogin(string userId, string loginProvider);
+        Task<SocialLoginModel[]> GetSocialLogins(string userId);
+        Task RemoveSocialLogin(string userId, string loginProvider, string providerKey);
     }
 }

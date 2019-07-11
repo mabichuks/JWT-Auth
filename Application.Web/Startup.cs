@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using Application.Core.Interface;
@@ -11,6 +12,7 @@ using Application.Core.Models;
 using Application.Infrastructure.Repositories;
 using Application.Web.Data;
 using Application.Web.Security;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -91,6 +93,26 @@ namespace Application.Web
                };
 
            }).AddCookie("cookie");
+
+
+            //Google Auth
+            var googleCredentials = Configuration.GetSection("GoogleAuthCredentials").Get<GoogleAuthenticationCredentials>();
+            services.AddAuthentication()
+                .AddGoogle("google", o =>
+                {
+
+                    o.ClientId = googleCredentials.ClientId;
+                    o.ClientSecret = googleCredentials.ClientSecret;
+                    o.SignInScheme = IdentityConstants.ExternalScheme;
+                    o.UserInformationEndpoint = "https://www.googleapis.com/oauth2/v2/userinfo";
+                    o.ClaimActions.Clear();
+                    o.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
+                    o.ClaimActions.MapJsonKey(ClaimTypes.Name, "name");
+                    o.ClaimActions.MapJsonKey(ClaimTypes.GivenName, "given_name");
+                    o.ClaimActions.MapJsonKey(ClaimTypes.Surname, "family_name");
+                    o.ClaimActions.MapJsonKey("urn:google:profile", "link");
+                    o.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
+                });
 
             var corsOriginString = Configuration.GetValue<string>("CorsOrigins");
             services.AddCors(options => options.AddPolicy("CorsPolicy",

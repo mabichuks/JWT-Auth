@@ -233,5 +233,90 @@ namespace Application.Infrastructure.Repositories
             var returnedUser = await query.ToArrayAsync();
             return returnedUser;
         }
+
+        public async Task AddSocialLogin(string userId, SocialLoginModel model)
+        {
+            var socialLogin = new SocialLogin
+            {
+                Name = model.Name,
+                Key = model.Key,
+                SocialLoginId = model.SocialLoginId,
+                Provider = model.Provider,
+                UserId = model.UserId
+                
+            };
+            _context.Set<SocialLogin>().Add(socialLogin);
+            await _context.SaveChangesAsync();
+            model.SocialLoginId = socialLogin.SocialLoginId;
+        }
+
+        public async Task<UserModel> FindUserBySocialLogin(string loginProvider, string providerKey)
+        {
+            var query = from socialLogins in _context.Set<SocialLogin>().Include(s => s.User)
+                        where socialLogins.Provider == loginProvider
+                        where socialLogins.Key == providerKey
+                        select socialLogins.User;
+
+            var user = await query.FirstOrDefaultAsync();
+            if (user == null) return null;
+            return new UserModel
+            {
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                IsActive = user.IsActive,
+                IsVerified = user.IsVerified,
+                UserId = user.UserId,
+            };
+        }
+
+        public async Task<SocialLoginModel> GetSocialLogin(string userId, string loginProvider)
+        {
+            var query = from socialLogins in _context.Set<SocialLogin>()
+                        where socialLogins.UserId == userId
+                        where socialLogins.Provider == loginProvider
+                        select socialLogins;
+            var login = await query.FirstOrDefaultAsync();
+            if (login == null) return null;
+            return new SocialLoginModel
+            {
+                Name = login.Name,
+                Key = login.Key,
+                SocialLoginId = login.SocialLoginId,
+                Provider = login.Provider,
+                UserId = login.UserId
+            };
+        }
+
+        public async Task<SocialLoginModel[]> GetSocialLogins(string userId)
+        {
+            var query = from socialLogins in _context.Set<SocialLogin>()
+                        where socialLogins.UserId == userId
+                        select socialLogins;
+
+            var logins = await query.ToListAsync();
+            return logins.Select(login => new SocialLoginModel
+            {
+                Name = login.Name,
+                Key = login.Key,
+                SocialLoginId = login.SocialLoginId,
+                Provider = login.Provider,
+                UserId = login.UserId
+            }).ToArray();
+        }
+
+        public  async Task RemoveSocialLogin(string userId, string loginProvider, string providerKey)
+        {
+            var query = from socialLogins in _context.Set<SocialLogin>()
+                        where socialLogins.UserId == userId
+                        where socialLogins.Provider == loginProvider
+                        where socialLogins.Key == providerKey
+                        select socialLogins;
+
+            var socialLogin = await query.FirstOrDefaultAsync();
+            if (socialLogin == null) throw new Exception("Social Login not Found");
+            _context.Set<SocialLogin>().Remove(socialLogin);
+            await _context.SaveChangesAsync();
+        }
     }
 }

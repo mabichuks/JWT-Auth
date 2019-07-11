@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Application.Core.Models;
 using Application.Web.Models;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -43,12 +44,19 @@ namespace Application.Web.Controllers
             if (result.Succeeded)
             {
                 UserModel user = await _userManager.FindByNameAsync(model.UserName);
-                var token = GenerateJwtToken(model.UserName, user);
+                var token = GenerateJwtToken(user);
                 return Ok(new { token });
             };
 
 
             return NotFound();
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+             await _signInManager.SignOutAsync();
+            return Ok();
         }
 
         [HttpPost("register")]
@@ -76,7 +84,7 @@ namespace Application.Web.Controllers
             if (addPassword.Succeeded)
             {
                 await _signInManager.SignInAsync(user, false);
-                return  Ok(GenerateJwtToken(model.Email, user));
+                return  Ok(GenerateJwtToken(user));
   
             } else
             {
@@ -84,34 +92,90 @@ namespace Application.Web.Controllers
                 await _userManager.DeleteAsync(user);
                 throw new Exception("An Error Occured");
             }
-            //var result = await _userManager.CreateAsync(user, model.Password);
-
-            //if (result.Succeeded)
-            //{
-            //    await _signInManager.SignInAsync(user, false);
-            //    return  Ok(GenerateJwtToken(model.Email, user));
-            //}
 
             throw new ApplicationException("UNKNOWN_ERROR");
         }
 
-        private string GenerateJwtToken(string email, UserModel user)
+        [HttpGet("login/{provider}")]
+        public  IActionResult ExternalLogin(string provider)
         {
-            var claims = new List<Claim>
+            var props = new AuthenticationProperties
             {
-                new Claim(JwtRegisteredClaimNames.Sub, email),
+                RedirectUri = Url.Action("ExternalLoginCallback"),
+                Items = { { "scheme", provider } }
+            };
+
+            return Challenge(props, provider);
+        }
+
+        [HttpGet("external")]
+        public async Task<IActionResult> ExternalLoginCallback()
+        {
+            var result = await HttpContext.AuthenticateAsync(IdentityConstants.ExternalScheme);
+
+            var externalUser = result.Principal.FindFirstValue("sub")
+                               ?? result.Principal.FindFirstValue(ClaimTypes.NameIdentifier)
+                               ?? throw new Exception("Cannot Find User");
+
+            var provider = result.Properties.Items["scheme"];
+            var user = await _userManager.FindByLoginAsync(provider, externalUser);
+
+            if(user == null)
+            {
+                var email = result.Principal.FindFirstValue("email")
+                            ?? result.Principal.FindFirstValue(ClaimTypes.Email);
+
+                if(email != null)
+                {
+                     user = await _userManager.FindByEmailAsync(email);
+                    
+                    if(user == null)
+                    {
+
+                        user = new UserModel { Email = email };
+                        IdentityResult identityResult = await _userManager.CreateAsync(user);
+
+                        if(identityResult.Succeeded)
+                        {
+                            await _userManager.AddLoginAsync(user, new UserLoginInfo(provider, externalUser, provider));
+
+                        }
+                    }
+
+                }
+
+
+            }
+
+            if(user == null)
+            {
+                return NotFound();
+            }
+
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+
+            await _signInManager.SignInAsync(user, false);
+            return Ok(new { token = GenerateJwtToken(user) });
+
+        }
+
+        private string GenerateJwtToken(UserModel user)
+        {
+            var claims = new Claim[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.FullName)
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Secret));
+            SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Secret));
 
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.Now.AddDays(Convert.ToDouble(_options.AccessTokenExpiration));
+            SigningCredentials creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            DateTime expires = DateTime.Now.AddDays(Convert.ToDouble(_options.AccessTokenExpiration));
 
-            var token = new JwtSecurityToken(_options.Issuer, _options.Audience, claims, expires: expires, signingCredentials: creds);
+            JwtSecurityToken token = new JwtSecurityToken(_options.Issuer, _options.Audience, claims, expires: expires, signingCredentials: creds);
 
-            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+            string jwt = new JwtSecurityTokenHandler().WriteToken(token);
             return jwt;
         }
 

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Application.Web.Security
 {
-    public class UserStore : IUserStore<UserModel>, IUserPasswordStore<UserModel>, IUserEmailStore<UserModel>, IUserClaimsPrincipalFactory<UserModel>, IUserClaimStore<UserModel>, IUserRoleStore<UserModel>
+    public class UserStore : IUserStore<UserModel>, IUserPasswordStore<UserModel>, IUserEmailStore<UserModel>, IUserClaimsPrincipalFactory<UserModel>, IUserClaimStore<UserModel>, IUserRoleStore<UserModel>, IUserLoginStore<UserModel>
     {
         private readonly IUserRepository _user;
         private readonly IRoleRepository _role;
@@ -235,6 +235,49 @@ namespace Application.Web.Security
         {
             var user = await _user.GetUsersInRole(roleName);
             return user;
+        }
+
+        public async Task AddLoginAsync(UserModel user, UserLoginInfo login, CancellationToken cancellationToken)
+        {
+            var sociallogin = await _user.GetSocialLogin(user.UserId, login.LoginProvider);
+            if (sociallogin == null)
+            {
+                sociallogin = ToSocialLogin(login);
+                await _user.AddSocialLogin(user.UserId, sociallogin);
+            }
+        }
+
+        public async Task RemoveLoginAsync(UserModel user, string loginProvider, string providerKey, CancellationToken cancellationToken)
+        {
+            await _user.RemoveSocialLogin(user.UserId, loginProvider, providerKey);
+        }
+
+        public async Task<IList<UserLoginInfo>> GetLoginsAsync(UserModel user, CancellationToken cancellationToken)
+        {
+            var socialLogins = await _user.GetSocialLogins(user.UserId);
+            return socialLogins.Select(ToLoginInfo).ToList();
+        }
+
+        public async Task<UserModel> FindByLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
+        {
+            return await _user.FindUserBySocialLogin(loginProvider, providerKey);
+        }
+
+        private SocialLoginModel ToSocialLogin(UserLoginInfo loginInfo)
+        {
+            if (loginInfo == null) return null;
+            return new SocialLoginModel
+            {
+                Name = loginInfo.ProviderDisplayName,
+                Key = loginInfo.ProviderKey,
+                Provider = loginInfo.LoginProvider,
+            };
+        }
+
+        private UserLoginInfo ToLoginInfo(SocialLoginModel socialLogin)
+        {
+            if (socialLogin == null) return null;
+            return new UserLoginInfo(socialLogin.Provider, socialLogin.Key, socialLogin.Name);
         }
     }
 
